@@ -1,70 +1,68 @@
 package com.yuldashov.scheduler.service;
 
-import com.yuldashov.scheduler.dto.EmailMessage;
-import com.yuldashov.scheduler.dto.SummarizationRequest;
-import com.yuldashov.scheduler.dto.TaskDto;
+import com.yuldashov.scheduler.dto.mail.EmailMessage;
+import com.yuldashov.scheduler.dto.task.TaskDto;
 import com.yuldashov.scheduler.models.TaskStatus;
 import com.yuldashov.scheduler.repository.TaskRepository;
 import com.yuldashov.scheduler.repository.UserRepository;
 import com.yuldashov.scheduler.models.Task;
 import com.yuldashov.scheduler.models.User;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
+import java.util.stream.Collectors;
 
 @Service
+@RequiredArgsConstructor
 public class SchedulerService {
+    private final static String TITLE = "Отчет за сутки";
     private final UserRepository userRepository;
     private final TaskRepository taskRepository;
     private final EmailService emailService;
     private final SummarizationService summarizationService;
 
-    @Autowired
-    public SchedulerService(UserRepository userRepository, TaskRepository taskRepository, EmailService emailService, SummarizationService summarizationService) {
-        this.userRepository = userRepository;
-        this.taskRepository = taskRepository;
-        this.emailService = emailService;
-        this.summarizationService = summarizationService;
-    }
-
     @Scheduled(cron = "0 */4 * * * *")
     public void createReports() {
         LocalDateTime beginTime = LocalDateTime.now().minusDays(1);
         List<User> users = userRepository.findUsersWithTasks(beginTime);
+        List<Long> usersId = users.stream().map(User::getId).toList();
+
+        List<Task> allUndoneTask = taskRepository.findAllByUserIdInAndStatus(usersId, TaskStatus.UNDONE);
+        List<Task> allDoneTask = taskRepository.findAllByUserIdInAndStatusAndCompletedAtAfter(usersId, TaskStatus.DONE, beginTime);
+
+        Map<Long, List<Task>> doneByUser = allDoneTask.stream()
+                .collect(Collectors.groupingBy(t -> t.getUser().getId()));
+        Map<Long, List<Task>> undoneByUser = allUndoneTask.stream()
+                .collect(Collectors.groupingBy(t -> t.getUser().getId()));
 
         for (User user : users) {
             try {
-                generateReportForUser(user, beginTime);
+                generateReportForUser(user,
+                        doneByUser.getOrDefault(user.getId(), List.of()),
+                        undoneByUser.getOrDefault(user.getId(), List.of()));
             } catch (Exception e) {
             }
         }
     }
 
-    private void generateReportForUser(User user, LocalDateTime beginTime) throws ExecutionException, InterruptedException, TimeoutException {
-        List<Task> doneTasks = taskRepository.findAllByUserIdAndStatusAndCompletedAtAfter(
-                user.getId(), TaskStatus.DONE, beginTime);
-        List<Task> undoneTasks = taskRepository.findAllByUserIdAndStatus(user.getId(), TaskStatus.UNDONE);
-
-        List<TaskDto> doneTasksDto = mapToDto(doneTasks);
-        List<TaskDto> undoneTasksDto = mapToDto(undoneTasks);
+    private void generateReportForUser(User user, List<Task> allDoneTask, List<Task> allUndoneTask) throws ExecutionException, InterruptedException, TimeoutException {
+        List<TaskDto> doneTasksDto = mapToDto(allDoneTask);
+        List<TaskDto> undoneTasksDto = mapToDto(allUndoneTask);
 
         String report = summarizationService.generateReport(user, doneTasksDto, undoneTasksDto);
-
         EmailMessage message = new EmailMessage(
                 user.getEmail(),
-                "Отчет за сутки",
+                TITLE,
                 report
         );
-
         emailService.sendEmailMessage(message);
-
     }
 
     private List<TaskDto> mapToDto(List<Task> tasks) {
@@ -77,13 +75,12 @@ public class SchedulerService {
     }
 
     private TaskDto toDto(Task task) {
-        TaskDto dto = new TaskDto();
-        dto.setId(task.getId());
-        dto.setTitle(task.getTitle());
-        dto.setDescription(task.getDescription());
-        dto.setStatus(task.getStatus().name());
-        dto.setCompletedAt(task.getCompletedAt());
-        return dto;
+        return new TaskDto(
+                task.getId(), task.getTitle(),
+                task.getDescription(),
+                task.getStatus().name(),
+                task.getCompletedAt()
+        );
     }
 
 }

@@ -1,11 +1,12 @@
 package com.yuldashov.scheduler.config;
 
-import com.yuldashov.scheduler.dto.SummarizationRequest;
-import com.yuldashov.scheduler.dto.SummarizationResponse;
+import com.yuldashov.scheduler.dto.summarization.SummarizationRequest;
+import com.yuldashov.scheduler.dto.summarization.SummarizationResponse;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
@@ -20,11 +21,21 @@ import java.util.Map;
 
 @Configuration
 public class KafkaRpcConfig {
+    @Value("${bootstrap.server}")
+    private String bootstrapHost;
+    @Value("${group.id}")
+    private String groupId;
+    @Value("${trusted.packages}")
+    private String trustedPackages;
+    @Value("${response.type}")
+    private String responseType;
+    @Value("${container.name}")
+    private String containerName;
 
     @Bean
     public ProducerFactory<String, SummarizationRequest> producerFactory() {
         Map<String, Object> config = new HashMap<>();
-        config.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092");
+        config.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapHost);
         config.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         config.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JacksonJsonSerializer.class);
 
@@ -34,14 +45,14 @@ public class KafkaRpcConfig {
     @Bean
     public ConsumerFactory<String, SummarizationResponse> consumerFactory() {
         Map<String, Object> config = new HashMap<>();
-        config.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092");
+        config.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapHost);
         config.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         config.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JacksonJsonDeserializer.class);
-        config.put(ConsumerConfig.GROUP_ID_CONFIG, "scheduler-group");
-        config.put(JacksonJsonDeserializer.TRUSTED_PACKAGES, "com.yuldashov.summarizationserver.dto,com.yuldashov.scheduler.dto");
+        config.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
+        config.put(JacksonJsonDeserializer.TRUSTED_PACKAGES, trustedPackages);
         config.put(JacksonJsonDeserializer.USE_TYPE_INFO_HEADERS, false);
         config.put(JacksonJsonDeserializer.VALUE_DEFAULT_TYPE,
-                "com.yuldashov.scheduler.dto.SummarizationResponse");
+                responseType);
         return new DefaultKafkaConsumerFactory<>(config);
     }
 
@@ -61,9 +72,9 @@ public class KafkaRpcConfig {
             ConcurrentKafkaListenerContainerFactory<String, SummarizationResponse> factory
     ) {
         ConcurrentMessageListenerContainer<String, SummarizationResponse> listenerContainer =
-        factory.createContainer("summarization-reply");
+        factory.createContainer(containerName);
 
-        listenerContainer.getContainerProperties().setGroupId("scheduler-group");
+        listenerContainer.getContainerProperties().setGroupId(groupId);
         return new ReplyingKafkaTemplate<>(producerFactory, listenerContainer);
     }
 

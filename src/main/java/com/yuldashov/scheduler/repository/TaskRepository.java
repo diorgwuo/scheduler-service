@@ -10,10 +10,6 @@ import java.util.List;
 
 @Repository
 public interface TaskRepository extends JpaRepository<Task, Long> {
-
-    List<Task> findAllByUserIdAndStatusAndCompletedAtAfter(
-            Long userId, TaskStatus status, LocalDateTime beforeTime);
-
-    List<Task> findAllByUserIdAndStatus(
-            Long userId, TaskStatus status);
+    List<Task> findAllByUserIdInAndStatus(List<Long> usersId, TaskStatus status) ;
+    List<Task> findAllByUserIdInAndStatusAndCompletedAtAfter(List<Long> usersId, TaskStatus taskStatus, LocalDateTime beginTime);
 }

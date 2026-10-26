@@ -1,6 +1,6 @@
 package com.yuldashov.scheduler.config;
 
-import com.yuldashov.scheduler.dto.EmailMessage;
+import com.yuldashov.scheduler.dto.mail.EmailMessage;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.springframework.context.annotation.Bean;
