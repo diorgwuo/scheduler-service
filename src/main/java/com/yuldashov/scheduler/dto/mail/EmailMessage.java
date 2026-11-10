@@ -2,6 +2,6 @@ package com.yuldashov.scheduler.dto.mail;
 
 public record EmailMessage (
     String address,
-    String title,
+    EmailType type,
     String body ) {}
 

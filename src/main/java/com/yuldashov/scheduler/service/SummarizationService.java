@@ -1,50 +1,34 @@
 package com.yuldashov.scheduler.service;
 
 import com.yuldashov.scheduler.dto.summarization.SummarizationRequest;
-import com.yuldashov.scheduler.dto.summarization.SummarizationResponse;
-import com.yuldashov.scheduler.dto.task.TaskDto;
+import com.yuldashov.scheduler.models.SummarizationRequestEntity;
+import com.yuldashov.scheduler.models.Task;
 import com.yuldashov.scheduler.models.User;
+import com.yuldashov.scheduler.repository.SummarizationRequestRepository;
 import lombok.RequiredArgsConstructor;
-import org.apache.kafka.clients.producer.ProducerRecord;
-import org.springframework.kafka.requestreply.ReplyingKafkaTemplate;
-import org.springframework.kafka.requestreply.RequestReplyFuture;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
 @Service
 @RequiredArgsConstructor
 public class SummarizationService {
-    private static final String TOPIC_NAME = "summarization-request";
-    private final ReplyingKafkaTemplate<String, SummarizationRequest, SummarizationResponse> replyingKafkaTemplate;
+    private static final String TOPIC_REQUEST = "summarization-request";
+    private final KafkaTemplate<String, SummarizationRequest> requestKafkaTemplate;
+    private final SummarizationRequestRepository requestRepository;
 
-    public String generateReport(User user, List<TaskDto> done, List<TaskDto> undone) throws ExecutionException, InterruptedException, TimeoutException {
-
+    public void generateReport(User user, List<Task> done, List<Task> undone) {
+        String requestId = UUID.randomUUID().toString();
+        requestRepository.save(new SummarizationRequestEntity(requestId, user.getEmail()));
         SummarizationRequest request = new SummarizationRequest(
-                UUID.randomUUID().toString(),
+                requestId,
                 user.getId(),
                 user.getUsername(),
-                user.getEmail(),
                 done,
                 undone
         );
-
-        ProducerRecord<String, SummarizationRequest> record = new ProducerRecord<>(
-                TOPIC_NAME,
-                request.requestId(),
-                request
-        );
-
-        RequestReplyFuture<String, SummarizationRequest, SummarizationResponse> future =
-                replyingKafkaTemplate.sendAndReceive(record);
-
-        SummarizationResponse response = future.get(60, TimeUnit.SECONDS).value();
-
-        return response.report();
+        requestKafkaTemplate.send(TOPIC_REQUEST, request);
     }
-
 }
