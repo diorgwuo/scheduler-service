@@ -20,7 +20,7 @@ import java.util.Map;
 @Configuration
 public class KafkaConfig {
     @Value("${bootstrap.server}")
-    String bootstrapServer;
+    private String bootstrapServer;
     @Value("${group.id}")
     private String groupId;
     @Value("${trusted.packages}")
@@ -68,8 +68,7 @@ public class KafkaConfig {
         config.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
         config.put(JacksonJsonDeserializer.TRUSTED_PACKAGES, trustedPackages);
         config.put(JacksonJsonDeserializer.USE_TYPE_INFO_HEADERS, false);
-        config.put(JacksonJsonDeserializer.VALUE_DEFAULT_TYPE,
-                responseType);
+        config.put(JacksonJsonDeserializer.VALUE_DEFAULT_TYPE, SummarizationResponse.class);
         return new DefaultKafkaConsumerFactory<>(config);
     }
 }

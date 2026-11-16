@@ -24,6 +24,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class SchedulerService {
     private static final String TOPIC_RESPONSE = "summarization-reply";
+    private static final String GROUP_ID = "scheduler-group";
     private final UserRepository userRepository;
     private final EmailService emailService;
     private final SummarizationService summarizationService;
@@ -48,9 +49,7 @@ public class SchedulerService {
 
         for (User user : users) {
             try {
-                generateReportForUser(user,
-                        doneByUser.getOrDefault(user.getId(), List.of()),
-                        undoneByUser.getOrDefault(user.getId(), List.of()));
+                summarizationService.generateReport(user, doneByUser.getOrDefault(user.getId(), List.of()), undoneByUser.getOrDefault(user.getId(), List.of()));
             } catch (Exception e) {
                 log.error("Не удалось отправить запрос к LLM для user: " + user.getId(), e);
             }
@@ -61,7 +60,7 @@ public class SchedulerService {
         summarizationService.generateReport(user, allDoneTask, allUndoneTask);
     }
 
-    @KafkaListener(topics = TOPIC_RESPONSE, groupId = "scheduler-group")
+    @KafkaListener(topics = TOPIC_RESPONSE, groupId = GROUP_ID)
     public void sendReportForUser(SummarizationResponse response) {
         String email = requestRepository.findEmailByRequestId(response.requestId())
                 .orElseThrow(() -> new RuntimeException("Не найден такой запрос с requestId: " + response.requestId()));
