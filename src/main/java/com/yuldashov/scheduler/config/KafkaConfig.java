@@ -25,8 +25,6 @@ public class KafkaConfig {
     private String groupId;
     @Value("${trusted.packages}")
     private String trustedPackages;
-    @Value("${response.type}")
-    private String responseType;
 
     @Bean
     public ProducerFactory<String, EmailMessage> emailProducerFactory() {
@@ -38,7 +36,7 @@ public class KafkaConfig {
         return new DefaultKafkaProducerFactory<>(config);
     }
 
-    @Bean(name = "emailKafkaTemplate")
+    @Bean()
     public KafkaTemplate<String, EmailMessage> emailKafkaTemplate() {
         return new KafkaTemplate<>(emailProducerFactory());
     }
@@ -54,7 +52,7 @@ public class KafkaConfig {
         return new DefaultKafkaProducerFactory<>(configProps);
     }
 
-    @Bean(name = "requestKafkaTemplate")
+    @Bean()
     public KafkaTemplate<String,SummarizationRequest> requestKafkaTemplate() {
         return new KafkaTemplate<>(requestProducerFactory());
     }
